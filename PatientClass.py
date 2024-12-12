@@ -51,6 +51,54 @@ class MRUterusDataset(Dataset):
         if not self.h5_path.exists():
             with h5py.File(self.h5_path, 'w') as f:
                 pass
+    
+    def __len__(self):
+        """Return the total number of slices in the dataset"""
+        return len(self.slice_df)
+
+    def __getitem__(self, idx):
+        """
+        Retrieve a specific slice with its associated metadata
+        
+        Returns a dictionary with:
+        - 'image': pixel array as a torch tensor
+        - 'slice_metadata': metadata for this specific slice
+        - 'series_metadata': metadata for the series of this slice
+        - 'study_metadata': metadata for the study of this slice
+        - 'patient_metadata': metadata for the patient
+        """
+        # Get slice information
+        slice_row = self.slice_df.iloc[idx]
+        slice_id = slice_row['slice_id']
+        series_uid = slice_row['series_instance_uid']
+        
+        # Retrieve pixel data
+        pixel_array = torch.from_numpy(self.get_slice_pixel_data(slice_id)).float()
+        
+        # Get series metadata
+        series_info = self.series_df[self.series_df['series_instance_uid'] == series_uid].iloc[0]
+        
+        # Get study metadata
+        study_info = self.study_df[self.study_df['study_instance_uid'] == series_info['study_instance_uid']].iloc[0]
+        
+        # Get patient metadata
+        patient_info = self.patient_df[self.patient_df['patient_id'] == study_info['patient_id']].iloc[0]
+        
+        return {
+            'image': pixel_array,
+            'slice_metadata': slice_row.to_dict(),
+            'series_metadata': series_info.to_dict(),
+            'study_metadata': study_info.to_dict(),
+            'patient_metadata': patient_info.to_dict(),
+            'has_fibroid': slice_row['has_fibroid']
+        }
+
+    def get_slice_by_id(self, slice_id: str):
+        """
+        Retrieve a specific slice by its unique ID
+        """
+        idx = self.slice_df[self.slice_df['slice_id'] == slice_id].index[0]
+        return self.__getitem__(idx)
 
     def add_patient_data(self, dicom_slice) -> str:
         """Add or update patient-level data"""
