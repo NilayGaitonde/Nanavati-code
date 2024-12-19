@@ -132,4 +132,9 @@ class YoloBody(nn.Module):
         #   out3 = (batch_size,255,52,52)
         #---------------------------------------------------#
         out2 = self.last_layer2(x2_in)
+        """
+        out0 is for larger objects
+        out1 is for medium objects
+        out2 is for smaller objects
+        """
         return out0, out1, out2

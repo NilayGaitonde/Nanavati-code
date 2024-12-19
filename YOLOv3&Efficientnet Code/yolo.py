@@ -13,54 +13,54 @@ from utils.utils import (cvtColor, get_anchors, get_classes, preprocess_input,
 from utils.utils_bbox import DecodeBox
 
 '''
-训练自己的数据集必看注释！
+Important note for training your own dataset!
 '''
 class YOLO(object):
     _defaults = {
         #--------------------------------------------------------------------------#
-        #   使用自己训练好的模型进行预测一定要修改model_path和classes_path！
-        #   model_path指向logs文件夹下的权值文件，classes_path指向model_data下的txt
+        #   When using your own trained model for prediction, you must modify model_path and classes_path!
+        #   model_path points to the weights file in the logs folder, classes_path points to the txt in model_data
         #
-        #   训练好后logs文件夹下存在多个权值文件，选择验证集损失较低的即可。
-        #   验证集损失较低不代表mAP较高，仅代表该权值在验证集上泛化性能较好。
-        #   如果出现shape不匹配，同时要注意训练时的model_path和classes_path参数的修改
+        #   After training, there are multiple weight files in the logs folder, choose the one with lower validation set loss.
+        #   Lower validation set loss doesn't mean higher mAP, it only means better generalization on the validation set.
+        #   If shape mismatch occurs, also pay attention to modifying model_path and classes_path parameters during training
         #--------------------------------------------------------------------------#
         "model_path"        : '/Users/nilaygaitonde/Documents/Projects/Nanavati/Data/new/YOLOv3&Efficientnet Code/logs/best_epoch_weights.pth',
         "classes_path"      : '/Users/nilaygaitonde/Documents/Projects/Nanavati/Data/new/YOLOv3&Efficientnet Code/model_data/voc_classes.txt',
         #---------------------------------------------------------------------#
-        #   anchors_path代表先验框对应的txt文件，一般不修改。
-        #   anchors_mask用于帮助代码找到对应的先验框，一般不修改。
+        #   anchors_path represents the txt file corresponding to prior boxes, generally no modification needed.
+        #   anchors_mask helps code find corresponding prior boxes, generally no modification needed.
         #---------------------------------------------------------------------#
         "anchors_path"      : '/Users/nilaygaitonde/Documents/Projects/Nanavati/Data/new/YOLOv3&Efficientnet Code/model_data/yolo_anchors.txt',
         "anchors_mask"      : [[6, 7, 8], [3, 4, 5], [0, 1, 2]],
         #---------------------------------------------------------------------#
-        #   输入图片的大小，必须为32的倍数。
+        #   Input image size must be a multiple of 32.
         #---------------------------------------------------------------------#
         "input_shape"       : [416, 416],
         #---------------------------------------------------------------------#
-        #   efficientnet的版本
-        #   phi = 0代表efficientnet-B0-yolov3
-        #   phi = 1代表efficientnet-B1-yolov3
-        #   phi = 2代表efficientnet-B2-yolov3   
-        #   …… 以此类推
+        #   EfficientNet version
+        #   phi = 0 represents efficientnet-B0-yolov3
+        #   phi = 1 represents efficientnet-B1-yolov3
+        #   phi = 2 represents efficientnet-B2-yolov3   
+        #   ... and so on
         #---------------------------------------------------------------------#
         "phi"               : 2,
         #---------------------------------------------------------------------#
-        #   只有得分大于置信度的预测框会被保留下来
+        #   Only prediction boxes with scores higher than confidence will be kept
         #---------------------------------------------------------------------#
         "confidence"        : 0.5,
         #---------------------------------------------------------------------#
-        #   非极大抑制所用到的nms_iou大小
+        #   NMS IOU size used for non-maximum suppression
         #---------------------------------------------------------------------#
         "nms_iou"           : 0.3,
         #---------------------------------------------------------------------#
-        #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
-        #   在多次测试后，发现关闭letterbox_image直接resize的效果更好
+        #   This variable controls whether to use letterbox_image for non-distorted resizing of input images,
+        #   After multiple tests, turning off letterbox_image and direct resizing shows better results
         #---------------------------------------------------------------------#
         "letterbox_image"   : False,
         #-------------------------------#
-        #   是否使用Cuda
-        #   没有GPU可以设置成False
+        #   Whether to use CUDA
+        #   Set to False if no GPU available
         #-------------------------------#
         "cuda"              : False,
     }
@@ -73,7 +73,7 @@ class YOLO(object):
             return "Unrecognized attribute name '" + n + "'"
 
     #---------------------------------------------------#
-    #   初始化YOLO
+    #   Initialize YOLO
     #---------------------------------------------------#
     def __init__(self, **kwargs):
         self.__dict__.update(self._defaults)
@@ -81,14 +81,14 @@ class YOLO(object):
             setattr(self, name, value)
             
         #---------------------------------------------------#
-        #   获得种类和先验框的数量
+        #   Get number of classes and prior boxes
         #---------------------------------------------------#
         self.class_names, self.num_classes  = get_classes(self.classes_path)
         self.anchors, self.num_anchors      = get_anchors(self.anchors_path)
         self.bbox_util                      = DecodeBox(self.anchors, self.num_classes, (self.input_shape[0], self.input_shape[1]), self.anchors_mask)
 
         #---------------------------------------------------#
-        #   画框设置不同的颜色
+        #   Set different colors for drawing boxes
         #---------------------------------------------------#
         hsv_tuples = [(x / self.num_classes, 1., 1.) for x in range(self.num_classes)]
         self.colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
@@ -98,11 +98,11 @@ class YOLO(object):
         show_config(**self._defaults)
 
     #---------------------------------------------------#
-    #   生成模型
+    #   Generate model
     #---------------------------------------------------#
     def generate(self):
         #---------------------------------------------------#
-        #   建立yolov3模型，载入yolov3模型的权重
+        #   Build YOLOv3 model and load weights
         #---------------------------------------------------#
         self.net    = YoloBody(self.anchors_mask, self.num_classes, phi = self.phi)
         device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -114,22 +114,22 @@ class YOLO(object):
             self.net = self.net.cuda()
 
     #---------------------------------------------------#
-    #   检测图片
+    #   Detect image
     #---------------------------------------------------#
     def detect_image(self, image, crop = False, count = False):
         image_shape = np.array(np.shape(image)[0:2])
         #---------------------------------------------------------#
-        #   在这里将图像转换成RGB图像，防止灰度图在预测时报错。
-        #   代码仅仅支持RGB图像的预测，所有其它类型的图像都会转化成RGB
+        #   Convert image to RGB here to prevent grayscale images from causing errors during prediction.
+        #   Code only supports RGB image prediction, all other types will be converted to RGB
         #---------------------------------------------------------#
         image       = cvtColor(image)
         #---------------------------------------------------------#
-        #   给图像增加灰条，实现不失真的resize
-        #   也可以直接resize进行识别
+        #   Add gray bars to achieve non-distorted resize
+        #   Can also directly resize for detection
         #---------------------------------------------------------#
         image_data  = resize_image(image, (self.input_shape[1],self.input_shape[0]), self.letterbox_image)
         #---------------------------------------------------------#
-        #   添加上batch_size维度
+        #   Add batch_size dimension
         #---------------------------------------------------------#
         image_data  = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, dtype='float32')), (2, 0, 1)), 0)
 
@@ -138,23 +138,26 @@ class YOLO(object):
             if self.cuda:
                 images = images.cuda()
             #---------------------------------------------------------#
-            #   将图像输入网络当中进行预测！
+            #   Input image into network for prediction!
             #---------------------------------------------------------#
             outputs = self.net(images)
+            # outputs will have a three element tuple (out1 for large objects, out2 for medium objects, out3 for small objects)
+            # each output has a shape of (batch_size, num_anchors * (num_classes + 5), feature_map_size) -> (1,507,6)
             outputs = self.bbox_util.decode_box(outputs)
-            max_bleh = outputs[0]
-            print("Confidence:",max_bleh[:,4][0][torch.argmax(max_bleh[:,4]).item()])
-            medium_bleh = outputs[1]
-            print("Confidence:",medium_bleh[:,4][0][torch.argmax(medium_bleh[:,4])])
-            min_bleh = outputs[2]
-            print("Confidence:",min_bleh[:,4][0][torch.argmax(min_bleh[:,4])])
+            # max_bleh = outputs[0]
+            # print("Confidence:",max_bleh[:,4][0][torch.argmax(max_bleh[:,4]).item()])
+            # medium_bleh = outputs[1]
+            # print("Confidence:",medium_bleh[:,4][0][torch.argmax(medium_bleh[:,4])])
+            # min_bleh = outputs[2]
+            # print("Confidence:",min_bleh[:,4][0][torch.argmax(min_bleh[:,4])])
             #---------------------------------------------------------#
-            #   将预测框进行堆叠，然后进行非极大抑制
+            #   Stack prediction boxes then perform non-maximum suppression
             #---------------------------------------------------------#
+            # results = outputs
             results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
                         image_shape, self.letterbox_image, conf_thres = self.confidence, nms_thres = self.nms_iou)
             
-            print(results)
+            # print(results)
             if results[0] is None: 
                 return image
 
@@ -162,12 +165,12 @@ class YOLO(object):
             top_conf    = results[0][:, 4] * results[0][:, 5]
             top_boxes   = results[0][:, :4]
         #---------------------------------------------------------#
-        #   设置字体与边框厚度
+        #   Set font and border thickness
         #---------------------------------------------------------#
         font        = ImageFont.truetype(font='Data/new/YOLOv3&Efficientnet Code/model_data/simhei.ttf', size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness   = int(max((image.size[0] + image.size[1]) // np.mean(self.input_shape), 1))
         #---------------------------------------------------------#
-        #   计数
+        #   Count
         #---------------------------------------------------------#
         if count:
             print("top_label:", top_label)
@@ -179,7 +182,7 @@ class YOLO(object):
                 classes_nums[i] = num
             print("classes_nums:", classes_nums)
         #---------------------------------------------------------#
-        #   是否进行目标的裁剪
+        #   Whether to crop objects
         #---------------------------------------------------------#
         if crop:
             for i, c in list(enumerate(top_label)):
@@ -196,7 +199,7 @@ class YOLO(object):
                 crop_image.save(os.path.join(dir_save_path, "crop_" + str(i) + ".png"), quality=95, subsampling=0)
                 print("save crop_" + str(i) + ".png to " + dir_save_path)
         #---------------------------------------------------------#
-        #   图像绘制
+        #   Draw image
         #---------------------------------------------------------#
         print(top_label)
         for i, c in list(enumerate(top_label)):
@@ -214,12 +217,14 @@ class YOLO(object):
             label = '{} {:.2f}'.format(predicted_class, score)
             print(label)
             draw = ImageDraw.Draw(image)
-            label_size = draw.textsize(label, font)
+            label_size = draw.textlength(label, font)
             label = label.encode('utf-8')
             print(label, top, left, bottom, right)
             
-            if top - label_size[1] >= 0:
-                text_origin = np.array([left, top - label_size[1]])
+            # if top - label_size[1] >= 0:
+            #     text_origin = np.array([left, top - label_size[1]])
+            if top - label_size >= 0:
+                text_origin = np.array([left, top - label_size])
             else:
                 text_origin = np.array([left, top + 1])
 
@@ -234,17 +239,17 @@ class YOLO(object):
     def get_FPS(self, image, test_interval):
         image_shape = np.array(np.shape(image)[0:2])
         #---------------------------------------------------------#
-        #   在这里将图像转换成RGB图像，防止灰度图在预测时报错。
-        #   代码仅仅支持RGB图像的预测，所有其它类型的图像都会转化成RGB
+        #   Convert image to RGB here to prevent grayscale images from causing errors during prediction.
+        #   Code only supports RGB image prediction, all other types will be converted to RGB
         #---------------------------------------------------------#
         image       = cvtColor(image)
         #---------------------------------------------------------#
-        #   给图像增加灰条，实现不失真的resize
-        #   也可以直接resize进行识别
+        #   Add gray bars to achieve non-distorted resize
+        #   Can also directly resize for detection
         #---------------------------------------------------------#
         image_data  = resize_image(image, (self.input_shape[1],self.input_shape[0]), self.letterbox_image)
         #---------------------------------------------------------#
-        #   添加上batch_size维度
+        #   Add batch_size dimension
         #---------------------------------------------------------#
         image_data  = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, dtype='float32')), (2, 0, 1)), 0)
 
@@ -253,12 +258,12 @@ class YOLO(object):
             if self.cuda:
                 images = images.cuda()
             #---------------------------------------------------------#
-            #   将图像输入网络当中进行预测！
+            #   Input image into network for prediction!
             #---------------------------------------------------------#
             outputs = self.net(images)
             outputs = self.bbox_util.decode_box(outputs)
             #---------------------------------------------------------#
-            #   将预测框进行堆叠，然后进行非极大抑制
+            #   Stack prediction boxes then perform non-maximum suppression
             #---------------------------------------------------------#
             results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
                         image_shape, self.letterbox_image, conf_thres=self.confidence, nms_thres=self.nms_iou)
@@ -267,12 +272,12 @@ class YOLO(object):
         for _ in range(test_interval):
             with torch.no_grad():
                 #---------------------------------------------------------#
-                #   将图像输入网络当中进行预测！
+                #   Input image into network for prediction!
                 #---------------------------------------------------------#
                 outputs = self.net(images)
                 outputs = self.bbox_util.decode_box(outputs)
                 #---------------------------------------------------------#
-                #   将预测框进行堆叠，然后进行非极大抑制
+                #   Stack prediction boxes then perform non-maximum suppression
                 #---------------------------------------------------------#
                 results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
                             image_shape, self.letterbox_image, conf_thres=self.confidence, nms_thres=self.nms_iou)
@@ -288,17 +293,17 @@ class YOLO(object):
             y = 1.0 / (1.0 + np.exp(-x))
             return y
         #---------------------------------------------------------#
-        #   在这里将图像转换成RGB图像，防止灰度图在预测时报错。
-        #   代码仅仅支持RGB图像的预测，所有其它类型的图像都会转化成RGB
+        #   Convert image to RGB here to prevent grayscale images from causing errors during prediction.
+        #   Code only supports RGB image prediction, all other types will be converted to RGB
         #---------------------------------------------------------#
         image       = cvtColor(image)
         #---------------------------------------------------------#
-        #   给图像增加灰条，实现不失真的resize
-        #   也可以直接resize进行识别
+        #   Add gray bars to achieve non-distorted resize
+        #   Can also directly resize for detection
         #---------------------------------------------------------#
         image_data  = resize_image(image, (self.input_shape[1],self.input_shape[0]), self.letterbox_image)
         #---------------------------------------------------------#
-        #   添加上batch_size维度
+        #   Add batch_size dimension
         #---------------------------------------------------------#
         image_data  = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, dtype='float32')), (2, 0, 1)), 0)
 
@@ -307,7 +312,7 @@ class YOLO(object):
             if self.cuda:
                 images = images.cuda()
             #---------------------------------------------------------#
-            #   将图像输入网络当中进行预测！
+            #   Feed the image into the network and make predictions!
             #---------------------------------------------------------#
             outputs = self.net(images)
         
@@ -336,17 +341,17 @@ class YOLO(object):
         f = open(os.path.join(map_out_path, "detection-results/"+image_id+".txt"),"w") 
         image_shape = np.array(np.shape(image)[0:2])
         #---------------------------------------------------------#
-        #   在这里将图像转换成RGB图像，防止灰度图在预测时报错。
-        #   代码仅仅支持RGB图像的预测，所有其它类型的图像都会转化成RGB
+        #   Here, the image is converted to RGB image to prevent grayscale image from reporting errors during prediction.
+        #   The code only supports prediction of RGB images, and all other types of images will be converted to RGB
         #---------------------------------------------------------#
         image       = cvtColor(image)
         #---------------------------------------------------------#
-        #   给图像增加灰条，实现不失真的resize
-        #   也可以直接resize进行识别
+        #   Add gray bars to the image to achieve distortion-free resizing
+        #   You can also resize directly for recognition
         #---------------------------------------------------------#
         image_data  = resize_image(image, (self.input_shape[1],self.input_shape[0]), self.letterbox_image)
         #---------------------------------------------------------#
-        #   添加上batch_size维度
+        #   Add the batch_size dimension
         #---------------------------------------------------------#
         image_data  = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, dtype='float32')), (2, 0, 1)), 0)
 
@@ -355,12 +360,12 @@ class YOLO(object):
             if self.cuda:
                 images = images.cuda()
             #---------------------------------------------------------#
-            #   将图像输入网络当中进行预测！
+            #   Feed the image into the network and make predictions!
             #---------------------------------------------------------#
             outputs = self.net(images)
             outputs = self.bbox_util.decode_box(outputs)
             #---------------------------------------------------------#
-            #   将预测框进行堆叠，然后进行非极大抑制
+            #   The prediction boxes are stacked and then non-maximum suppression is performed
             #---------------------------------------------------------#
             results = self.bbox_util.non_max_suppression(torch.cat(outputs, 1), self.num_classes, self.input_shape, 
                         image_shape, self.letterbox_image, conf_thres = self.confidence, nms_thres = self.nms_iou)

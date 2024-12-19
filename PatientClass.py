@@ -120,6 +120,7 @@ class MRUterusDataset(Dataset):
             'has_fibroid': has_fibroid
         }])
         self.slice_df = pd.concat([self.slice_df, new_slice], ignore_index=True)
+        print(slice_id)
         
         # Store pixel data
         with h5py.File(self.h5_path, 'a') as f:

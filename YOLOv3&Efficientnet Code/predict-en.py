@@ -75,7 +75,8 @@ if __name__ == "__main__":
         for example, judge if predicted_class == 'car': to determine if the current target is a car, then record the number. Use draw.text to write.
         '''
         while True:
-            img = "/Users/nilaygaitonde/Documents/Projects/Nanavati/bleh.png"
+            # img = "/Users/nilaygaitonde/Documents/Projects/Nanavati/bleh.png"
+            img = "/Users/nilaygaitonde/Documents/Projects/Nanavati/Data/new/JPEGImages/1.2.826.0.1.3680043.2.461.11221584.1158768121.jpg"
             # img = input('Input image filename:')
             try:
                 image = Image.open(img)
@@ -85,6 +86,7 @@ if __name__ == "__main__":
             else:
                 r_image = yolo.detect_image(image, crop = crop, count=count)
                 r_image.show()
+            break
 
     elif mode == "video":
         capture = cv2.VideoCapture(video_path)
